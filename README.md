@@ -51,12 +51,3 @@ optional arguments:
 
 # Knownledge Base
 
-## if you get the error:
-```
-python3.6: Relink `/lib/x86_64-linux-gnu/libsystemd.so.0' with `/lib/x86_64-linux-gnu/librt.so.1' for IFUNC symbol `clock_gettime'
-python3.6: Relink `/lib/x86_64-linux-gnu/libudev.so.1' with `/lib/x86_64-linux-gnu/librt.so.1' for IFUNC symbol `clock_gettime'
-```
-## Run
-```
-sudo apt install --reinstall libudev1
-```
