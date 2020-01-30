@@ -176,12 +176,8 @@ while True:
     try:
 
         # Realiza a conexão com o banco ...
-        print('1')
         con = conexao(connectstring)
-        print('2')
         listaorigens = get_change_data_capture(con)
-        print('3')
-
 
         # for item in listaorigens:
         #     for key,val in item.items():
