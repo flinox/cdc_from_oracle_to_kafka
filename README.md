@@ -77,3 +77,4 @@ sudo apt-get install libaio1
 
 https://kafka-python.readthedocs.io/en/master/apidoc/KafkaConsumer.html
 https://pypi.org/project/kafka-python/
+https://www.programcreek.com/python/example/74085/cx_Oracle.SYSDBA

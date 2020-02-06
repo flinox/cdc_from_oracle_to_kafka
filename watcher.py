@@ -35,7 +35,8 @@ def conexao(cs):
     # Realiza a conexao
     print(">>> Connecting with the oracle database source ...")
     print(cs)
-    con = cx_Oracle.connect(cs)
+    con = cx_Oracle.connect(cs,mode=cx_Oracle.SYSDBA)
+    #con = cx_Oracle.connect(cs)
     print(con.encoding)
     return con
 
@@ -109,18 +110,25 @@ def get_change_data_capture(con):
                         END;
                         /"""
 
+        #registros = "select TMACOD,ESPCOD from ALUNCURS where rownum < 3"
+
+        #registros.encode('utf8').strip()
+
         cur = con.cursor()
-        print(registros.encode('utf-8'))
         cur.execute(registros)
         time.sleep(1)
+
+        print(cur)
 
         for result in cur:
             lista.append({result[0].strip(" ") : int(result[1])})
 
-    except:
-        e = sys.exc_info()[0]
-        print("### Error: %s" % e)
-        print(sys.exc_info())
+    except Exception as e:
+
+        print('\n################################## ERROR ##################################')
+        print("\n\n %s \n %s \n\n" % (sys.exc_info()[0],e))
+        print('\n################################## ERROR ##################################\n')
+
 
     finally:
         cur.close()
