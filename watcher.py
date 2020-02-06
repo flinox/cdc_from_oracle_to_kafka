@@ -8,9 +8,11 @@
 ## pip3 install cx_Oracle                                             ##
 ##                                                                    ##
 ## e.g.:                                                              ##
-## python watcher.py 172.20.1.14:32769/orclpdb1.localdomain 60 OLIMPO ##
+## python watcher.py 172.20.1.14:32769/ORCLCDB.localdomain 60 OLIMPO  ##
 ##                                                                    ##
 ########################################################################
+
+# -*- coding: utf-8 -*-
 
 '''
  export SRCUSER="sys"
@@ -45,8 +47,8 @@ def get_change_data_capture(con):
     lista = []
     try:
 
-        registros = """ alter session set nls_date_format = 'DD/MM/YYYY HH24:MI:SS';
-                        DECLARE
+        # alter session set nls_date_format = 'DD/MM/YYYY HH24:MI:SS';
+        registros = """ DECLARE
                         v_count             NUMBER := 0;
                         v_startTime         DATE := TO_DATE('28/01/2020 12:20:42', 'DD/MM/YYYY HH24:MI:SS');
                         v_endTime           DATE := TO_DATE(SYSDATE, 'DD/MM/YYYY HH24:MI:SS');
@@ -107,21 +109,41 @@ def get_change_data_capture(con):
                         when others then
                             dbms_output.put_line  (sqlerrm);
 
-                        END;
-                        /"""
+                        END;"""
 
-        #registros = "select TMACOD,ESPCOD from ALUNCURS where rownum < 3"
 
-        #registros.encode('utf8').strip()
+
+        registros = """ DECLARE
+                        v_temp        VARCHAR2(20);
+                        BEGIN
+
+			SELECT  TMACOD INTO v_temp 
+                        FROM PRODUCAO.ALUNCURS
+                        WHERE ROWNUM < 2;
+                        
+                        dbms_output.put_line  ('COMANDO!'||v_temp);
+
+                        END;"""
+
+        registros = registros.encode('ascii','ignore').decode('ascii')
+        print(registros)
 
         cur = con.cursor()
         cur.execute(registros)
+        con.commit()
+
+
+        
         time.sleep(1)
 
         print(cur)
 
         for result in cur:
-            lista.append({result[0].strip(" ") : int(result[1])})
+            #lista.append({result[0].strip(" ") : int(result[1])})
+            lista.append(result[0].strip(" "))
+            print(lista)
+        
+        exit(9)
 
     except Exception as e:
 
