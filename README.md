@@ -10,7 +10,9 @@ v1 - 28/01/2020 - By: Fernando Lino e Fernanda Titato
 ## Requirements:
 ### Install library oracle python
 ```
+sudo apt install python3-pip
 pip3 install cx_Oracle
+pip3 install kafka-python
 ```
 
 ### Install oracle container para testes 
@@ -56,7 +58,7 @@ optional arguments:
 
 
 
-# Knownledge Base
+## Knownledge Base
 
 If you trying to connect and get the error below:
 ```
@@ -69,3 +71,9 @@ Try:
 ```
 sudo apt-get install libaio1
 ```
+
+
+## References
+
+https://kafka-python.readthedocs.io/en/master/apidoc/KafkaConsumer.html
+https://pypi.org/project/kafka-python/

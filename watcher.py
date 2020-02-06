@@ -8,7 +8,7 @@
 ## pip3 install cx_Oracle                                             ##
 ##                                                                    ##
 ## e.g.:                                                              ##
-## python watcher.py 172.20.1.19:32769/orclpdb1.localdomain 60 ORIGEM ##
+## python watcher.py 172.20.1.14:32769/orclpdb1.localdomain 60 OLIMPO ##
 ##                                                                    ##
 ########################################################################
 
@@ -177,6 +177,7 @@ srcuser = os.environ['SRCUSER']
 srcpass = os.environ['SRCPASS'] 
 
 connectstring = srcuser+'/'+srcpass+'@'+args.connectstring
+#connectstring = srcuser+'/'+srcpass+'@'+args.connectstring+' as sysdba'
 
 print(">>> Starting to get the change data capture %s " % datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
 
