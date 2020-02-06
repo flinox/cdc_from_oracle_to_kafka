@@ -1,19 +1,24 @@
-###################################################################### 
-## The Watcher !                                                    ##
-## To capture data change from oracle and send to kafka topic       ##
-###################################################################### 
-## v1 - 28/01/2020 - Fernando Lino / Fernanda Titato                ##
-##                                                                  ##
-## requirements:                                                    ##
-## pip3 install cx_Oracle                                           ##
-##                                                                  ##
-## e.g.:                                                            ##
-## python watcher.py 172.20.1.23:32769/ORCLCDB 60 ORIGEM            ##
-##                                                                  ##
-######################################################################
+########################################################################
+## The Watcher !                                                      ##
+## To capture data change from oracle and send to kafka topic         ##
+########################################################################
+## v1 - 28/01/2020 - Fernando Lino / Fernanda Titato                  ##
+##                                                                    ##
+## requirements:                                                      ##
+## pip3 install cx_Oracle                                             ##
+##                                                                    ##
+## e.g.:                                                              ##
+## python watcher.py 172.20.1.19:32769/orclpdb1.localdomain 60 ORIGEM ##
+##                                                                    ##
+########################################################################
 
-# export SRCUSER="sys"
-# export SRCPASS="Oradoc_dbl"
+'''
+ export SRCUSER="sys"
+ export SRCPASS="Oradoc_dbl"
+
+ export SRCUSER="PRODUCAO"
+ export SRCPASS="producao"
+'''
 
 import cx_Oracle
 import requests
@@ -29,7 +34,9 @@ import os
 def conexao(cs):
     # Realiza a conexao
     print(">>> Connecting with the oracle database source ...")
+    print(cs)
     con = cx_Oracle.connect(cs)
+    print(con.encoding)
     return con
 
 # Conta qtde de registros por origem
@@ -103,6 +110,7 @@ def get_change_data_capture(con):
                         /"""
 
         cur = con.cursor()
+        print(registros.encode('utf-8'))
         cur.execute(registros)
         time.sleep(1)
 
@@ -111,7 +119,7 @@ def get_change_data_capture(con):
 
     except:
         e = sys.exc_info()[0]
-        print("Error: %s" % e)
+        print("### Error: %s" % e)
         print(sys.exc_info())
 
     finally:
@@ -122,7 +130,7 @@ def get_change_data_capture(con):
                 for key,val in item.items():
                     print(">>> Origem %s possui %s registros inativos pendentes para expurgo ..." % (key,str(val)))
         else:
-            print(">>> Nenhum sistema origem possui registros para expurgar.")
+            print(">>> Nenhum dado retornado.")
 
         return lista
 
@@ -168,7 +176,7 @@ if 'SRCUSER' not in os.environ or 'SRCPASS' not in os.environ:
 srcuser = os.environ['SRCUSER'] 
 srcpass = os.environ['SRCPASS'] 
 
-connectstring = srcuser+'/'+srcpass+'@'+args.connectstring+' as sysdba' #args.connectstring
+connectstring = srcuser+'/'+srcpass+'@'+args.connectstring
 
 print(">>> Starting to get the change data capture %s " % datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
 
@@ -176,6 +184,7 @@ while True:
     try:
 
         # Realiza a conexão com o banco ...
+
         con = conexao(connectstring)
         listaorigens = get_change_data_capture(con)
 

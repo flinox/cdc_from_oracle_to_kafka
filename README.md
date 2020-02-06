@@ -8,8 +8,14 @@ v1 - 28/01/2020 - By: Fernando Lino e Fernanda Titato
 ```
 
 ## Requirements:
+### Install library oracle python
 ```
 pip3 install cx_Oracle
+```
+
+### Install oracle container para testes 
+```
+https://hub.docker.com/_/oracle-database-enterprise-edition
 ```
 
 ## How to use:
@@ -44,6 +50,7 @@ positional arguments:
 optional arguments:
   -h, --help     show this help message and exit
 ```
+
 
 
 
