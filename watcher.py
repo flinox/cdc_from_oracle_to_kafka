@@ -128,15 +128,24 @@ def get_change_data_capture(con):
         registros = registros.encode('ascii','ignore').decode('ascii')
         print(registros)
 
-        cur = con.cursor()
-        cur.execute(registros)
-        con.commit()
+        try:
 
+            cur = con.cursor()
+            cur.execute(registros)
+            con.commit()
 
+        except cx_Oracle.DatabaseError as e: 
+            print("There is a problem with Oracle", e) 
+        
+        # by writing finally if any error occurs 
+        # then also we can close the all database operation 
+        finally: 
+            if cur: 
+                cur.close() 
+            if con: 
+                con.close() 
         
         time.sleep(1)
-
-        print(cur)
 
         for result in cur:
             #lista.append({result[0].strip(" ") : int(result[1])})
@@ -151,18 +160,6 @@ def get_change_data_capture(con):
         print("\n\n %s \n %s \n\n" % (sys.exc_info()[0],e))
         print('\n################################## ERROR ##################################\n')
 
-
-    finally:
-        cur.close()
-
-        if len(lista) > 0:
-            for item in lista:
-                for key,val in item.items():
-                    print(">>> Origem %s possui %s registros inativos pendentes para expurgo ..." % (key,str(val)))
-        else:
-            print(">>> Nenhum dado retornado.")
-
-        return lista
 
 if not sys.version_info > (2, 7):
    # berate your user for running a 10 year

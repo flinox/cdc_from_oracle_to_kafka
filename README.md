@@ -80,3 +80,4 @@ https://pypi.org/project/kafka-python/
 https://www.programcreek.com/python/example/74085/cx_Oracle.SYSDBA
 
 https://stackoverflow.com/questions/18267935/return-variable-from-cx-oracle-pl-sql-call-in-python
+https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html
