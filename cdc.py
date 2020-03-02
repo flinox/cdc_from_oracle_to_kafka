@@ -28,11 +28,16 @@ def connect_Pool():
 
     try:
 
+        #dsn = cx_Oracle.makedsn('host', port, 'sid')
+
         # Create the session pool
-        pool = cx_Oracle.SessionPool(srcuser, srcpass, dsn , min=2, max=5, increment=1, encoding="UTF-8") # "dbhost.example.com/orclpdb1"
+        pool = cx_Oracle.SessionPool(srcuser, srcpass, dsn , min=2, max=5, increment=1, encoding="UTF-8",connectiontype=cx_Oracle.Connection,getmode=cx_Oracle.SYSDBA) # "dbhost.example.com/orclpdb1"
 
         # Acquire a connection from the pool
         connection = pool.acquire()
+        #connection.clientinfo = 'python 2.6.4 - win32'
+        #connection.module = 'cx_Oracle SessionPool demo'
+        #connection.action = 'Get sysdate'
 
     except Exception as ex:
         print(">>> ERROR: [connect_Pool] %s [] %s" % (ex,traceback.format_exc()))
@@ -83,8 +88,6 @@ def execute_Pool_Statement(connection,query):
         # Use the pooled connection
         cursor = connection.cursor()
         cursor.execute(query)
-        colunas = [linha[0] for linha in cursor.description]
-        registros = cursor.fetchall()
         return True
 
     except Exception as ex:
@@ -119,6 +122,8 @@ def valida_usuario_senha():
     srcuser = os.environ['SRCUSER'] 
     srcpass = os.environ['SRCPASS'] 
 
+    print('>>> INFO: Using user %s' % srcuser)
+
 def json_converter(o):
     if isinstance(o, datetime.datetime):
         if '00:00:00' in o.strftime("%H:%M:%S"):
@@ -142,21 +147,39 @@ def main():
         # Create the connection and open the pool
         pool,connection = connect_Pool()
 
-        # # Alter Session
-        # print(" >>> INFO: Execute Alter session")
-        # execute_Pool_Statement(connection,"alter session set nls_date_format = 'DD/MM/YYYY HH24:MI:SS'")
+        print(">>> INFO: Executing Alter session")
+        if execute_Pool_Statement(connection,"alter session set nls_date_format = 'DD/MM/YYYY HH24:MI:SS'"):
+            
+            print(">>> INFO: Executing DBMS_LOGMNR.START_LOGMNR")
+            if execute_Pool_Statement(connection,"BEGIN DBMS_LOGMNR.START_LOGMNR(startTime => TO_DATE('28/01/2020 12:20:42', 'DD/MM/YYYY HH24:MI:SS')," +
+                                                 " endTime => TO_DATE(SYSDATE, 'DD/MM/YYYY HH24:MI:SS')," +
+                                                 " OPTIONS => DBMS_LOGMNR.COMMITTED_DATA_ONLY +" +
+                                                 " DBMS_LOGMNR.CONTINUOUS_MINE +" +
+                                                 " DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG" +
+                                                 " ); END;"):
+                print(">>> INFO: Executing The query on V$LOGMNR_CONTENTS")
+                consulta = """SELECT    OPERATION_CODE,
+                                        OPERATION,
+                                        COMMIT_TIMESTAMP,
+                                        SEG_TYPE_NAME,
+                                        SEG_OWNER,
+                                        TABLE_NAME,
+                                        TABLE_SPACE,
+                                        USERNAME,
+                                        ROW_ID,
+                                        SQL_REDO,
+                                        SQL_UNDO
+                                FROM V$LOGMNR_CONTENTS
+                                WHERE TABLE_NAME = 'PRODUCAO'
+                                AND SEG_OWNER = 'ALUNCURS'
+                                AND OPERATION IN ('INSERT', 'UPDATE', 'DELETE')
+                                ORDER BY SCN""" #.replace('\n',' ')
+                print(consulta)
+                resultado = execute_Pool(connection,consulta)
+                print(resultado)
 
-        # # Alter Session
-        # print(" >>> INFO: Execute DBMS_LOGMNR.START_LOGMNR")
-        # execute_Pool_Statement(connection,"DBMS_LOGMNR.START_LOGMNR(startTime => TO_DATE('28/01/2020 12:20:42', 'DD/MM/YYYY HH24:MI:SS')," +
-        #                                   " endTime => TO_DATE(SYSDATE, 'DD/MM/YYYY HH24:MI:SS')," +
-        #                                   " OPTIONS => DBMS_LOGMNR.COMMITTED_DATA_ONLY +" +
-        #                                   " DBMS_LOGMNR.CONTINUOUS_MINE +" +
-        #                                   " DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG" +
-        #                                   " )"
-
-        resultado = execute_Pool(connection,"select alucod,espcod,tmacod,inscod,acrdataingresso from producao.aluncurs where rownum < 3")
-        print(resultado)
+                if execute_Pool_Statement(connection,"BEGIN DBMS_LOGMNR.END_LOGMNR; END;"):
+                    pass
 
         # Close the pool and connection
         disconnect_Pool(pool,connection)
