@@ -13,6 +13,8 @@ v1 - 28/01/2020 - By: Fernando Lino e Fernanda Titato
 sudo apt install python3-pip
 pip3 install cx_Oracle
 pip3 install kafka-python
+pip3 install singer-python==5.3.1
+pip3 install strict-rfc3339==0.7
 ```
 
 ### Install oracle container para testes 
