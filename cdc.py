@@ -6,6 +6,7 @@ import os
 import traceback
 import json
 import datetime
+import time
 
 '''
 export SRCUSER="sys"
@@ -20,7 +21,7 @@ srcpass = None
 cursor = None
 connection = None
 
-start = "BEGIN DBMS_LOGMNR.START_LOGMNR(startTime => TO_DATE('02/03/2020 18:40:00', 'DD/MM/YYYY HH24:MI:SS'),endTime => TO_DATE('02/03/2020 18:50:00', 'DD/MM/YYYY HH24:MI:SS'),OPTIONS => DBMS_LOGMNR.COMMITTED_DATA_ONLY + DBMS_LOGMNR.CONTINUOUS_MINE + DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG); END;"
+start = "BEGIN DBMS_LOGMNR.START_LOGMNR(startTime => TO_DATE('02/03/2020 12:00:00', 'DD/MM/YYYY HH24:MI:SS'),endTime => TO_DATE('02/03/2020 18:50:00', 'DD/MM/YYYY HH24:MI:SS'),OPTIONS => DBMS_LOGMNR.COMMITTED_DATA_ONLY + DBMS_LOGMNR.CONTINUOUS_MINE + DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG); END;"
 consulta = """SELECT    OPERATION_CODE,
                         OPERATION,
                         COMMIT_TIMESTAMP,
@@ -33,8 +34,8 @@ consulta = """SELECT    OPERATION_CODE,
                         SQL_REDO,
                         SQL_UNDO
                 FROM V$LOGMNR_CONTENTS
-                WHERE TABLE_NAME = 'PRODUCAO'
-                AND SEG_OWNER = 'ALUNCURS'
+                WHERE TABLE_NAME = 'ALUNCURS'
+                AND SEG_OWNER = 'PRODUCAO'
                 AND OPERATION IN ('INSERT', 'UPDATE', 'DELETE')
                 ORDER BY SCN""".replace('\n',' ')
 end = "BEGIN DBMS_LOGMNR.END_LOGMNR; END;"
@@ -90,11 +91,11 @@ def main():
         valida_usuario_senha()
 
         # Create the connection
-        dsn = cx_Oracle.makedsn('10.63.38.247', 32771,service_name='ORCLCDB.localdomain')
+        dsn = cx_Oracle.makedsn('10.63.38.247', 32769,service_name='ORCLCDB.localdomain')
 
         # Acquire a connection from the pool
         connection = cx_Oracle.connect(srcuser, srcpass, dsn , encoding="UTF-8",mode=cx_Oracle.SYSDBA)
-        connection.autocommit = True
+        #connection.autocommit = True
 
         # Open Cursor
         cursor = connection.cursor()
@@ -107,13 +108,13 @@ def main():
 
         print(">>> INFO: Executing The query on V$LOGMNR_CONTENTS")
         registros = cursor.execute(consulta)
+        registros = cursor.fetchall()
 
         json_data=[]
 
         try:
 
             colunas = [linha[0] for linha in cursor.description]
-            #registros = cursor.fetchall()
 
             for registro in registros:
                 json_data.append(dict(zip(colunas,registro)))
@@ -124,10 +125,12 @@ def main():
 
         print(json.dumps(json_data, default = json_converter, indent=4))
 
-
-
         print(">>> INFO: Executing DBMS_LOGMNR.END_LOGMNR")
         cursor.execute(end)
+
+        # Tempo
+        print('Waiting 3 seconds...')
+        time.sleep(3)
 
         # Close Cursor
         cursor.close()
