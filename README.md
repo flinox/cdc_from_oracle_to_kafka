@@ -15,6 +15,7 @@ pip3 install cx_Oracle
 pip3 install kafka-python
 pip3 install singer-python==5.3.1
 pip3 install strict-rfc3339==0.7
+pip3 install kafka-python
 ```
 
 ### Install oracle container para testes 
@@ -83,3 +84,17 @@ https://www.programcreek.com/python/example/74085/cx_Oracle.SYSDBA
 
 https://stackoverflow.com/questions/18267935/return-variable-from-cx-oracle-pl-sql-call-in-python
 https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html
+https://towardsdatascience.com/kafka-python-explained-in-10-lines-of-code-800e3e07dad1
+
+
+## Desenho
+
+ORIGEM: OLIMPO
+TABELA: ALUNCURS
+
+TOPICO CONTROLE DO INTERVALO DE DATA PARA CONSULTA DO DELTA: 
+NOME: OLIMPO-ALUNCURS-CONTROLE
+{ "START_TIME": "03/03/2020 12:00:00" , "END_TIME": "03/03/2020 12:10:00" }
+
+
+
