@@ -278,9 +278,6 @@ while True:
 
     except KeyboardInterrupt as it:
         logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' CTRL+C acionado')
-        print(">>> INFO: Ctrl+C acionado! %s [] %s" % (it,format_exc()))        
+        print("\n>>> INFO: Ctrl+C acionado, encerrando...")
         exit(2)
 
-
-
-    
