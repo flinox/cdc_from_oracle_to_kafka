@@ -19,9 +19,10 @@ export SRCPASS="Oradoc_dbl"
 export SRCUSER="PRODUCAO"
 export SRCPASS="producao"
 '''
+
 source = 'OLIMPO'
 source_host = '10.63.38.247'
-source_port = 32769
+source_port = 32773
 source_service_name = 'ORCLCDB.localdomain'
 source_owner = 'PRODUCAO'
 source_table = 'ALUNCURS'
@@ -33,26 +34,28 @@ target_topic = 'OLIMPO-ALUNCURS'
 source_database_user = None
 source_database_pass = None
 
+intervalo_execucao = 120
+
 
 # Processamento das mensagens
 class MyProcessingThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
 
-    def create_Consumer(target_host_kafka,target_topic,group_id):
+    def create_Consumer(self,target_host_kafka,target_topic,group_id):
         return KafkaConsumer(target_topic,
             bootstrap_servers=[target_host_kafka],
             auto_offset_reset='latest',
             enable_auto_commit=True,
             group_id=group_id,
             value_deserializer=lambda x: loads(x.decode('utf-8')),
-            consumer_timeout_ms=5000)
+            consumer_timeout_ms=10000)
 
-    def create_Producer(target_host_kafka):
+    def create_Producer(self,target_host_kafka):
         return KafkaProducer(bootstrap_servers=[target_host_kafka],value_serializer=lambda x: dumps(x).encode('utf-8'),key_serializer=lambda x: dumps(x).encode('utf-8'))
 
-    def json_converter(o):
-        if isinstance(o, datetime.datetime):
+    def json_converter(self,o):
+        if isinstance(o, datetime):
             if '00:00:00' in o.strftime("%H:%M:%S"):
                 return o.strftime("%d/%m/%Y")
             else:
@@ -68,8 +71,8 @@ class MyProcessingThread(threading.Thread):
         connection = None
 
         data_control_json = { "START_TIME": "[START_TIME]" , "END_TIME": "[END_TIME]" }
-        logminer_start = "BEGIN DBMS_LOGMNR.START_LOGMNR(startTime => TO_DATE([START_TIME], 'DD/MM/YYYY HH24:MI:SS'),endTime => TO_DATE([END_TIME], 'DD/MM/YYYY HH24:MI:SS'),OPTIONS => DBMS_LOGMNR.COMMITTED_DATA_ONLY + DBMS_LOGMNR.CONTINUOUS_MINE + DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG); END;"
-        logminer_query = ("SELECT OPERATION_CODE,OPERATION,COMMIT_TIMESTAMP,SEG_TYPE_NAME,SEG_OWNER,TABLE_NAME,TABLE_SPACE,USERNAME,ROW_ID,SQL_REDO,SQL_UNDO FROM V$LOGMNR_CONTENTS WHERE TABLE_NAME = '%s' AND SEG_OWNER = '%s' AND OPERATION IN ('INSERT', 'UPDATE', 'DELETE') ORDER BY SCN" % (source_table,source_owner))
+        logminer_start = "BEGIN DBMS_LOGMNR.START_LOGMNR(startTime => TO_DATE('[START_TIME]', 'DD/MM/YYYY HH24:MI:SS'),endTime => TO_DATE('[END_TIME]', 'DD/MM/YYYY HH24:MI:SS'),OPTIONS => DBMS_LOGMNR.COMMITTED_DATA_ONLY + DBMS_LOGMNR.CONTINUOUS_MINE + DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG); END;"
+        logminer_query = ("SELECT OPERATION,COMMIT_TIMESTAMP,SEG_OWNER,TABLE_NAME,ROW_ID,SQL_REDO,SQL_UNDO FROM V$LOGMNR_CONTENTS WHERE TABLE_NAME = '%s' AND SEG_OWNER = '%s' AND OPERATION IN ('INSERT', 'UPDATE', 'DELETE') ORDER BY SCN" % (source_table,source_owner))
         logminer_end = "BEGIN DBMS_LOGMNR.END_LOGMNR; END;"
 
         resultado = {}
@@ -103,13 +106,15 @@ class MyProcessingThread(threading.Thread):
 
             # Se não houver nenhuma data
             if len(messages) == 0:
-                data_control_json['START_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now() - timedelta(minutes=15))
-                data_control_json['END_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now())
+                data_control_json['START_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format( ( datetime.now() - timedelta(minutes=15) ) + timedelta(hours=3) )
+                data_control_json['END_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now() + timedelta(hours=3))
             # Se houver pega a data dela
             else:
                 for message in messages:
                     data_control_json['START_TIME'] = message['END_TIME']
-                    data_control_json['END_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now())
+                    data_control_json['END_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now() + timedelta(hours=3))
+
+            print('>>> INFO: Intervalo: ',data_control_json['START_TIME'],'e',data_control_json['END_TIME'])
 
             # Execute
             # print(data_control_json)
@@ -125,14 +130,24 @@ class MyProcessingThread(threading.Thread):
             cursor = connection.cursor()
             cursor.execute("alter session set nls_date_format = 'DD/MM/YYYY HH24:MI:SS'")
 
+            # TEMP
+            #cursor.execute("alter session set TIME_ZONE = '+3:00'")
+            # TEMP
+
             # Starta o logminer para o intervalo de data que se quer procurar
             logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Executando DBMS_LOGMNR.START_LOGMNR...')
             print(">>> INFO: Executando DBMS_LOGMNR.START_LOGMNR")
+
             start_consulta = logminer_start.replace('[START_TIME]',data_control_json['START_TIME'])
             start_consulta = start_consulta.replace('[END_TIME]',data_control_json['END_TIME'])
+            
+            #print(start_consulta)
+            #exit(8)
+
             cursor.execute(start_consulta)
 
             # Executa a consulta no logminer
+
             logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Executando a consulta em V$LOGMNR_CONTENTS...')
             print(">>> INFO: Executando a consulta em V$LOGMNR_CONTENTS")
             cursor.execute(logminer_query)
@@ -165,13 +180,13 @@ class MyProcessingThread(threading.Thread):
             # FAZER LACO PARA delta
             logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Sending messages to main topic '+target_topic)
             print('>>> INFO: Enviando mensagens para o topico principal',target_topic)
-            print('   Mensagens para enviar:',len(delta))
+            print('    Mensagens para enviar:',len(delta))
             for i, comando in enumerate(delta):
                 data = dumps(delta, default = self.json_converter, indent=4)
                 key = str(datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3])
                 #print(data)
                 producer.send(target_topic, value=data)
-                print('   Mensagem %s enviada!' % str(i+1))
+                print('    Mensagem %s enviada!' % str(i+1))
                 sleep(0.01)
 
             logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Updating topic control '+target_topic_control)
@@ -183,7 +198,7 @@ class MyProcessingThread(threading.Thread):
             producer.close()  
 
         except Exception as ex:
-            logging.error(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' ' + ex + ' ' + format_exc())
+            logging.error(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' ' + format_exc())
             print(">>> ERROR: %s [] %s" % (ex,format_exc()))
             exit(1)
 
@@ -222,6 +237,7 @@ def valida_usuario_senha():
     logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Source user ' + source_database_user)
     print('>>> INFO: Using user %s' % source_database_user)
 
+global intervalo_execucao
 
 LEVELS = {'debug': logging.DEBUG,
           'info': logging.INFO,
@@ -236,7 +252,7 @@ LEVELS = {'debug': logging.DEBUG,
 #     logging.basicConfig(level=level)
 
 
-logging.basicConfig(filename='cdc.log',level=logging.DEBUG)
+logging.basicConfig(filename='cdc.log',level=logging.INFO)
 logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Aplicativo inicializado')
 
 
@@ -263,15 +279,12 @@ while True:
         task.start()
         task.join()
 
-        waiting_time = 10
-        print('>>> INFO: Aguardando',str(waiting_time),'para próxima execução\n')
-        logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Aguardando '+str(waiting_time)+' segundos para próxima execução')
-        sleep(waiting_time)
-
-        exit(10)
+        print('>>> INFO: Aguardando',str(intervalo_execucao),'para próxima execução\n')
+        logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Aguardando '+str(intervalo_execucao)+' segundos para próxima execução')
+        sleep(intervalo_execucao)
 
     except Exception as ex:
-        logging.error(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' ' + ex + ' ' + format_exc())
+        logging.error(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' ' + format_exc() )
         print(">>> ERROR: %s [] %s" % (ex,format_exc()))
         sleep(20)
         error_count += 1
@@ -280,4 +293,3 @@ while True:
         logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' CTRL+C acionado')
         print("\n>>> INFO: Ctrl+C acionado, encerrando...")
         exit(2)
-
