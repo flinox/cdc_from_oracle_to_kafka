@@ -101,12 +101,17 @@ export SRCUSER="usuario"
 export SRCPASS="senha"
 ```
 
-### Sample to run
+### Run
 ```
-python cdc.py 172.20.1.23:32769/ORCLCDB 60 ORIGEM
+python cdc.py SISTEMA 10.63.38.247 1521 ORCLCDB.localdomain OWNER TABLE localhost:9092
 ```
 
+to get more information
+
+
 ```
+python cdc.py -h
+
 CDC FROM ORACLE TO KAFKA 
 ----------------------------------------------------------------------------------------
 Created By: 
