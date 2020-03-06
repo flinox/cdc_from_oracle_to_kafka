@@ -1,65 +1,162 @@
 
-# The Watcher !                                      
-To capture data change from oracle and send to kafka topic
+# A simple CDC_FROM_ORACLE_TO_KAFKA
+A Python program to capture data change from table on oracle and send it to kafka topic.
+
 
 ## Version History
 ```
-v1 - 28/01/2020 - By: Fernando Lino e Fernanda Titato
+v0 - 28/01/2020 - By: Fernando Lino e Fernanda Titato
+v1 - 06/03/2020 - By: Fernando Lino e Fernanda Titato
 ```
 
-## Requirements:
-### Install library oracle python
+
+
+## Oracle Database Source Pre-Reqs
+#### It must be enable at least the Minimal Supplemental Logging.
+
 ```
-sudo apt install python3-pip
-pip3 install cx_Oracle
-pip3 install kafka-python
-pip3 install singer-python==5.3.1
-pip3 install strict-rfc3339==0.7
-pip3 install kafka-python
+Minimal Supplemental Logging
+
+Registra a quantidade mínima de informações necessárias para o LogMiner identificar, agrupar e mesclar as operações de redo associadas às alterações do DML. Ele garante que o LogMiner (e qualquer produto desenvolvido com a tecnologia LogMiner) tenha informações suficientes para suportar linhas encadeadas e várias disposições de armazenamento, como tabelas de cluster e tabelas organizadas por índices.
 ```
 
-### Install oracle container para testes 
+To check it, you can run the following query:
+
+```
+SELECT SUPPLEMENTAL_LOG_DATA_MIN,
+       SUPPLEMENTAL_LOG_DATA_PK,
+       SUPPLEMENTAL_LOG_DATA_UI
+FROM V$DATABASE;
+```
+ 
+To enable the Minimal Supplemental Logging, run the following command as Sysdba:
+```
+ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+In order to recover the changes, what we could see is that the user who will perform the queries needs to have permission of SYSDBA.
+
+So, the following script will help to enable the minimal supplemental log and give the write permissions to user created to retrieve the changes from oracle table, remember to replace <user> to your source user with write permissions to access the table who you want to get the data change.
+
+```
+alter database archivelog;
+
+ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+grant create session, execute_catalog_role, select any transaction, select any dictionary to <user>;
+
+grant select on SYSTEM.LOGMNR_COL$ to <user>;
+
+grant select on SYSTEM.LOGMNR_OBJ$ to <user>;
+
+grant select on SYSTEM.LOGMNR_USER$ to <user>;
+
+grant select on SYSTEM.LOGMNR_UID$ to <user>;
+
+grant LOGMINING to <user>;
+
+grant EXECUTE_CATALOG_ROLE to <user>;
+
+grant SELECT_CATALOG_ROLE to <user;
+
+grant select on v_$database to <user>;
+
+grant execute on DBMS_LOGMNR to <user>;
+
+grant select on v_$logmnr_contents to <user>;
+
+grant sysdba to <user>;
+```
+
+I recommend the use of an Oracle container for tests
 ```
 https://hub.docker.com/_/oracle-database-enterprise-edition
 ```
 
-## How to use:
-
-### Set the user and pass to access the source
+The default user for this image from Oracle is:
 ```
 export SRCUSER="sys"
 export SRCPASS="Oradoc_dbl"
 ```
 
-### e.g.
+
+## The Python CDC program requirements:
+
+> Python 3.6+
+
+### libraries
 ```
-python watcher.py 172.20.1.23:32769/ORCLCDB 60 ORIGEM
+pip3 install cx_Oracle
+pip3 install singer-python==5.3.1
+pip3 install strict-rfc3339==0.7
+pip3 install kafka-python
+```
+
+
+### Before run
+Set the sysdba user and password of who will have access to table you want to get the change data, like this:
+
+```
+export SRCUSER="usuario"
+export SRCPASS="senha"
+```
+
+### Sample to run
+```
+python cdc.py 172.20.1.23:32769/ORCLCDB 60 ORIGEM
 ```
 
 ```
-Watcher - A Change data capture from oracle to kafka topic! 
+CDC FROM ORACLE TO KAFKA 
 ----------------------------------------------------------------------------------------
-Created By: Fernando Lino Di Tomazzo Silva ( https://www.linkedin.com/in/flinox )
+Created By: 
+   Fernando Lino Di Tomazzo Silva ( https://www.linkedin.com/in/flinox )
+   Fernanda Miola Titato ( https://www.linkedin.com/in/fernanda-miola-titato-a3471224 )
 
-Enviroment Variables:
-SRCUSER >> The user with privileges to get the change data capture from source oracle
-SRCPASS >> The pass of user above
+Version 1.0 - 2020-03-06 
+
+Sintaxe: 
+python cdc.py SISTEMA 10.63.38.247 1521 ORCLCDB.localdomain OWNER TABLE localhost:9092
+
+Obs.:
+É preciso informar as variaveis de ambiente SRCUSER e SRCPASS para acesso ao banco de origem da conexao que será criada.
+O Topico no kafka será criado usando o seguinte padrao [source]-[source_table]
+O Topico de controle do intervalo de data processado será criado usando o seguinte padrao CONTROLE-[source]-[source_table]
+Se não conseguir buscar o intervalo de execucao do topico de controle, o programa irá pegar os ultimos 15 minutos
 
 positional arguments:
-  connectstring  The address to database oracle you want to get change data
-                 capture, e.g.: hostname:port/service
-  timeinterval   Informe o intervalo de tempo para verificar mudanças em
-                 segundos
-  source         Informe o nome do sistema de origem
+  source               Nome de identificacao do sistema de origem, será usado
+                       para organizar as mensagens no nome do topico no kafka
+  source_host          Informe o nome ou IP do banco de dados oracle de origem
+  source_port          Informe a porta do oracle do banco de dados oracle de
+                       origem
+  source_service_name  Informe o service name do banco de dados oracle de
+                       origem
+  source_owner         Informe o nome do owner da tabela de origem
+  source_table         Informe o nome da tabela de origem
+  target_host_kafka    Informe o nome ou IP do kafka de destino, separado por
+                       virgula caso tenha mais de um
+  intervalo_execucao   Intervalo de execução em segundos para pegar as
+                       mudanças na origem (inteiro), default 300 (5min)
+  consumer_timeout     Intervalo de tempo em milisegundos que o programa deve
+                       esperar por mensagens vindas do topico de controle
+                       (inteiro), default 30000 ( 30seg )
+  log_level            Qual nivel de log deseja para esta execucao
+                       [debug,info,warning,error,critical], default info
 
 optional arguments:
-  -h, --help     show this help message and exit
+  -h, --help           show this help message and exit
 ```
 
+## How it works
 
+A control topic will be created to know the date ranges already processed, the content will something like this:
+```
+{ "START_TIME": "03/03/2020 12:00:00" , "END_TIME": "03/03/2020 12:10:00" }
+```
+The application will always keep in this control topic the date range used to get the changes in the source table.
 
-
-
+In the next run, the application will use END TIME as START TIME and END TIME will be the date and time of the runtime, then it always sending DELTA to the main topic.
 
 ## Knownledge Base
 
@@ -75,7 +172,6 @@ Try:
 sudo apt-get install libaio1
 ```
 
-
 ## References
 
 https://kafka-python.readthedocs.io/en/master/apidoc/KafkaConsumer.html
@@ -85,16 +181,6 @@ https://www.programcreek.com/python/example/74085/cx_Oracle.SYSDBA
 https://stackoverflow.com/questions/18267935/return-variable-from-cx-oracle-pl-sql-call-in-python
 https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html
 https://towardsdatascience.com/kafka-python-explained-in-10-lines-of-code-800e3e07dad1
-
-
-## Desenho
-
-ORIGEM: OLIMPO
-TABELA: ALUNCURS
-
-TOPICO CONTROLE DO INTERVALO DE DATA PARA CONSULTA DO DELTA: 
-NOME: OLIMPO-ALUNCURS-CONTROLE
-{ "START_TIME": "03/03/2020 12:00:00" , "END_TIME": "03/03/2020 12:10:00" }
 
 
 

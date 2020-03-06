@@ -1,0 +1,30 @@
+INFO:root:06/03/2020 11:38:00 Aplicativo inicializado
+INFO:root:06/03/2020 11:38:00 > Log Level: info
+INFO:root:06/03/2020 11:38:00 > Intervalo de execucao: 300
+INFO:root:06/03/2020 11:38:00 > Consumer Timeout: 30000
+INFO:root:06/03/2020 11:38:00 Passou pela validação de versão python
+INFO:root:06/03/2020 11:38:00 Source user PRODUCAO
+INFO:root:06/03/2020 11:38:00 Iniciando Thread...
+INFO:root:06/03/2020 11:38:00 Creating consumer...
+INFO:kafka.conn:<BrokerConnection node_id=bootstrap-0 host=localhost:9092 <connecting> [IPv4 ('127.0.0.1', 9092)]>: connecting to localhost:9092 [('127.0.0.1', 9092) IPv4]
+INFO:kafka.conn:Probing node bootstrap-0 broker version
+ERROR:kafka.conn:Connect attempt to <BrokerConnection node_id=bootstrap-0 host=localhost:9092 <connecting> [IPv4 ('127.0.0.1', 9092)]> returned error 111. Disconnecting.
+INFO:kafka.conn:<BrokerConnection node_id=bootstrap-0 host=localhost:9092 <connecting> [IPv4 ('127.0.0.1', 9092)]>: Closing connection. KafkaConnectionError: 111 ECONNREFUSED
+INFO:kafka.conn:<BrokerConnection node_id=bootstrap-0 host=localhost:9092 <connecting> [IPv4 ('127.0.0.1', 9092)]>: connecting to localhost:9092 [('127.0.0.1', 9092) IPv4]
+ERROR:kafka.conn:Connect attempt to <BrokerConnection node_id=bootstrap-0 host=localhost:9092 <connecting> [IPv4 ('127.0.0.1', 9092)]> returned error 111. Disconnecting.
+INFO:kafka.conn:<BrokerConnection node_id=bootstrap-0 host=localhost:9092 <connecting> [IPv4 ('127.0.0.1', 9092)]>: Closing connection. KafkaConnectionError: 111 ECONNREFUSED
+ERROR:root:06/03/2020 11:38:00 Traceback (most recent call last):
+  File "cdc.py", line 64, in run
+    consumer = self.create_Consumer(target_host_kafka,target_topic_control,target_topic_control,consumer_timeout)
+  File "cdc.py", line 29, in create_Consumer
+    consumer_timeout_ms=timeout)
+  File "/home/flinox/.local/lib/python3.6/site-packages/kafka/consumer/group.py", line 355, in __init__
+    self._client = KafkaClient(metrics=self._metrics, **self.config)
+  File "/home/flinox/.local/lib/python3.6/site-packages/kafka/client_async.py", line 242, in __init__
+    self.config['api_version'] = self.check_version(timeout=check_timeout)
+  File "/home/flinox/.local/lib/python3.6/site-packages/kafka/client_async.py", line 898, in check_version
+    raise Errors.NoBrokersAvailable()
+kafka.errors.NoBrokersAvailable: NoBrokersAvailable
+
+INFO:root:06/03/2020 11:38:00 Aguardando 300 segundos para próxima execução
+INFO:root:06/03/2020 11:38:10 CTRL+C acionado

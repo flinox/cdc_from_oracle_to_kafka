@@ -10,31 +10,8 @@ from time import sleep
 from json import dumps, loads
 from kafka import KafkaProducer, KafkaConsumer
 import logging
-
-
-'''
-export SRCUSER="sys"
-export SRCPASS="Oradoc_dbl"
-
-export SRCUSER="PRODUCAO"
-export SRCPASS="producao"
-'''
-
-source = 'OLIMPO'
-source_host = '10.63.38.247'
-source_port = 32773
-source_service_name = 'ORCLCDB.localdomain'
-source_owner = 'PRODUCAO'
-source_table = 'ALUNCURS'
-
-target_host_kafka = 'localhost:9092'
-target_topic_control = 'CONTROLE-OLIMPO-ALUNCURS'
-target_topic = 'OLIMPO-ALUNCURS'
-
-source_database_user = None
-source_database_pass = None
-
-intervalo_execucao = 120
+import argparse
+import textwrap
 
 
 # Processamento das mensagens
@@ -42,14 +19,14 @@ class MyProcessingThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
 
-    def create_Consumer(self,target_host_kafka,target_topic,group_id):
+    def create_Consumer(self,target_host_kafka,target_topic,group_id,timeout):
         return KafkaConsumer(target_topic,
             bootstrap_servers=[target_host_kafka],
             auto_offset_reset='latest',
             enable_auto_commit=True,
             group_id=group_id,
             value_deserializer=lambda x: loads(x.decode('utf-8')),
-            consumer_timeout_ms=10000)
+            consumer_timeout_ms=timeout)
 
     def create_Producer(self,target_host_kafka):
         return KafkaProducer(bootstrap_servers=[target_host_kafka],value_serializer=lambda x: dumps(x).encode('utf-8'),key_serializer=lambda x: dumps(x).encode('utf-8'))
@@ -63,7 +40,7 @@ class MyProcessingThread(threading.Thread):
 
     def run(self):
 
-        global source, source_host, source_port, source_service_name, source_owner, source_table
+        global source, source_host, source_port, source_service_name, source_owner, source_table, consumer_timeout
 
         logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Iniciando Thread...')
 
@@ -84,7 +61,7 @@ class MyProcessingThread(threading.Thread):
             # CONSUMER para topico de controle
             ##################################################################################
             logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Creating consumer...')
-            consumer = self.create_Consumer(target_host_kafka,target_topic_control,target_topic_control)
+            consumer = self.create_Consumer(target_host_kafka,target_topic_control,target_topic_control,consumer_timeout)
 
             #print(consumer)
             #input('Tecle para continuar...')
@@ -106,13 +83,13 @@ class MyProcessingThread(threading.Thread):
 
             # Se não houver nenhuma data
             if len(messages) == 0:
-                data_control_json['START_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format( ( datetime.now() - timedelta(minutes=15) ) + timedelta(hours=3) )
-                data_control_json['END_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now() + timedelta(hours=3))
+                data_control_json['START_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format( ( datetime.now() - timedelta(minutes=15) ) )
+                data_control_json['END_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now())
             # Se houver pega a data dela
             else:
                 for message in messages:
                     data_control_json['START_TIME'] = message['END_TIME']
-                    data_control_json['END_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now() + timedelta(hours=3))
+                    data_control_json['END_TIME'] = '{0:%d/%m/%Y %H:%M:%S}'.format(datetime.now())
 
             print('>>> INFO: Intervalo: ',data_control_json['START_TIME'],'e',data_control_json['END_TIME'])
 
@@ -237,23 +214,72 @@ def valida_usuario_senha():
     logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Source user ' + source_database_user)
     print('>>> INFO: Using user %s' % source_database_user)
 
-global intervalo_execucao
-
 LEVELS = {'debug': logging.DEBUG,
           'info': logging.INFO,
           'warning': logging.WARNING,
           'error': logging.ERROR,
           'critical': logging.CRITICAL}
 
+source_database_user = None
+source_database_pass = None
 
-# if len(sys.argv) > 1:
-#     level_name = sys.argv[1]
-#     level = LEVELS.get(level_name, logging.NOTSET)
-#     logging.basicConfig(level=level)
+# Define os parametros esperados e obrigatorios
+parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,description=textwrap.dedent('''\
+         CDC FROM ORACLE TO KAFKA 
+         ----------------------------------------------------------------------------------------
+         Created By: 
+            Fernando Lino Di Tomazzo Silva ( https://www.linkedin.com/in/flinox )
+            Fernanda Miola Titato ( https://www.linkedin.com/in/fernanda-miola-titato-a3471224 )
+
+         Version 1.0 - 2020-03-06 
+
+         Sintaxe: 
+         python cdc.py SISTEMA 10.63.38.247 1521 ORCLCDB.localdomain OWNER TABLE localhost:9092
+
+         Obs.:
+         É preciso informar as variaveis de ambiente SRCUSER e SRCPASS para acesso ao banco de origem da conexao que será criada.
+         O Topico no kafka será criado usando o seguinte padrao [source]-[source_table]
+         O Topico de controle do intervalo de data processado será criado usando o seguinte padrao CONTROLE-[source]-[source_table]
+         Se não conseguir buscar o intervalo de execucao do topico de controle, o programa irá pegar os ultimos 15 minutos
+
+         '''))
 
 
-logging.basicConfig(filename='cdc.log',level=logging.INFO)
+parser.add_argument("source", help="Nome de identificacao do sistema de origem, será usado para organizar as mensagens no nome do topico no kafka")
+parser.add_argument("source_host", help="Informe o nome ou IP do banco de dados oracle de origem")
+parser.add_argument("source_port", help="Informe a porta do oracle do banco de dados oracle de origem")
+parser.add_argument("source_service_name", help="Informe o service name do banco de dados oracle de origem")
+parser.add_argument("source_owner", help="Informe o nome do owner da tabela de origem")
+parser.add_argument("source_table", help="Informe o nome da tabela de origem")
+parser.add_argument("target_host_kafka", help="Informe o nome ou IP do kafka de destino, separado por virgula caso tenha mais de um")
+parser.add_argument("intervalo_execucao", nargs='?', help="Intervalo de execução em segundos para pegar as mudanças na origem (inteiro), default 300 (5min)", default=300)
+parser.add_argument("consumer_timeout", nargs='?', help="Intervalo de tempo em milisegundos que o programa deve esperar por mensagens vindas do topico de controle (inteiro), default 30000 ( 30seg ) ", default=30000)
+parser.add_argument("log_level", nargs='?', help="Qual nivel de log deseja para esta execucao [debug,info,warning,error,critical], default info ", default='info')
+args = parser.parse_args()
+
+
+source = args.source
+source_host = args.source_host
+source_port = args.source_port
+source_service_name = args.source_service_name
+source_owner = args.source_owner
+source_table = args.source_table
+target_host_kafka = args.target_host_kafka
+target_topic_control = '{}-{}-{}'.format('CONTROLE',source,source_table)
+target_topic = '{}-{}'.format(source,source_table)
+intervalo_execucao = args.intervalo_execucao
+consumer_timeout = args.consumer_timeout
+log_level = args.log_level
+
+
+level = LEVELS.get(log_level, logging.NOTSET)
+logging.basicConfig(filename=str(datetime.now().strftime('%Y%m%d_%H%M%S'))+'_cdc.log',level=level)
+
+
 logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Aplicativo inicializado')
+logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' > Log Level: '+log_level)
+logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' > Intervalo de execucao: '+str(intervalo_execucao))
+logging.info(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' > Consumer Timeout: '+str(consumer_timeout))
 
 
 # Validacoes
@@ -270,7 +296,7 @@ while True:
 
     try:
         
-        if error_count == 5:
+        if error_count == error_max:
             logging.error(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' Error limit exceeded')
             print(">>> ERROR: Limite de erros excedido!")
             exit(9)
@@ -286,7 +312,7 @@ while True:
     except Exception as ex:
         logging.error(str(datetime.now().strftime('%d/%m/%Y %H:%M:%S')) + ' ' + format_exc() )
         print(">>> ERROR: %s [] %s" % (ex,format_exc()))
-        sleep(20)
+        sleep(60)
         error_count += 1
 
     except KeyboardInterrupt as it:
