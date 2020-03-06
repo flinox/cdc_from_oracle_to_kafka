@@ -163,6 +163,19 @@ The application will always keep in this control topic the date range used to ge
 
 In the next run, the application will use END TIME as START TIME and END TIME will be the date and time of the runtime, then it always sending DELTA to the main topic.
 
+The application will produce on main topic a message in encoded json format with this informations obtained from V$LOGMNR_CONTENTS:
+
+```
+OPERATION
+COMMIT_TIMESTAMP
+SEG_OWNER
+TABLE_NAME
+ROW_ID
+SQL_REDO
+SQL_UNDO
+```
+
+
 ## Knownledge Base
 
 If you trying to connect and get the error below:
